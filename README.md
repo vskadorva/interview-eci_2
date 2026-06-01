@@ -20,6 +20,18 @@ pnpm dev
 - Frontend: http://localhost:5173
 - API: http://localhost:3001
 
+## E2E Tests (Playwright)
+
+Phase 1 regression suite covers critical auth, browse, cart, checkout, favorites, and API security bugs. See [docs/e2e-phase-1-test-plan.md](docs/e2e-phase-1-test-plan.md) for the full bug-to-test matrix.
+
+```bash
+pnpm install
+pnpm --filter @acme/e2e exec playwright install chromium
+pnpm test:e2e:phase1
+```
+
+`pnpm test:e2e` runs the full suite. Tests start the dev servers automatically via Playwright `webServer` config.
+
 ## Your Task
 
 There are bugs scattered throughout the frontend, backend, and shared packages. Some will be immediately obvious (build failures, runtime crashes), while others are more subtle (incorrect behavior, broken features).

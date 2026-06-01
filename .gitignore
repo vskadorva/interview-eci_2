@@ -5,3 +5,8 @@ dist/
 .env
 .env.local
 .vite/
+.playwright-mcp
+apps/e2e/.auth/
+apps/e2e/test-results/
+apps/e2e/playwright-report/
+apps/e2e/blob-report/

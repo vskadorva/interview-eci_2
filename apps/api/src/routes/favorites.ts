@@ -1,14 +1,15 @@
 import type { FastifyInstance } from "fastify";
-import type { Persona } from "@acme/shared";
+import { addFavoriteSchema, type Persona } from "@acme/shared";
 import { db, favorites as favoritesStore, personas as personasStore } from "../db.js";
 import { authenticate } from "../middleware/auth.js";
+import { getUserId } from "../lib/request.js";
+import { sendValidationError } from "../lib/validation.js";
 
 export async function favoriteRoutes(app: FastifyInstance) {
   app.addHook("preHandler", authenticate);
 
   app.get("/favorites", async (request) => {
-    const { id: userId } = request.user as { id: string };
-    const userFavs = favoritesStore.get(userId);
+    const userFavs = favoritesStore.get(getUserId(request));
     const result: Persona[] = [];
 
     if (userFavs) {
@@ -22,31 +23,32 @@ export async function favoriteRoutes(app: FastifyInstance) {
   });
 
   app.post("/favorites", async (request, reply) => {
-    const { id: userId } = request.user as { id: string };
-    const { personaId } = request.body as { personaId: string };
-
-    if (!personaId) {
-      return reply.status(400).send({ error: "personaId is required" });
+    const parsed = addFavoriteSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
     }
 
+    const { personaId } = parsed.data;
     const persona = db.personas.getById(personaId);
     if (!persona) {
       return reply.status(404).send({ error: "Persona not found" });
     }
 
-    db.favorites.add(userId, personaId);
+    db.favorites.add(getUserId(request), personaId);
     return { success: true };
   });
 
   app.delete<{ Params: { personaId: string } }>(
     "/favorites/:personaId",
     async (request, reply) => {
-      const { id: userId } = request.user as { id: string };
-      const removed = db.favorites.remove(userId, request.params.personaId);
+      const removed = db.favorites.remove(
+        getUserId(request),
+        request.params.personaId,
+      );
       if (!removed) {
         return reply.status(404).send({ error: "Favorite not found" });
       }
       return { success: true };
-    }
+    },
   );
 }

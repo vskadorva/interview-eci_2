@@ -4,6 +4,7 @@ import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth";
 import { queryClient } from "~/lib/queryClient";
 import { CartItem } from "~/components/CartItem";
+import { SignInPrompt } from "~/components/SignInPrompt";
 import type { Cart } from "@acme/shared";
 
 export const Route = createFileRoute("/cart")({
@@ -36,19 +37,7 @@ function CartPage() {
   });
 
   if (!user) {
-    return (
-      <div className="text-center py-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Sign in to view your cart
-        </h2>
-        <Link
-          to="/login"
-          className="text-indigo-600 hover:text-indigo-700 font-medium"
-        >
-          Go to sign in
-        </Link>
-      </div>
-    );
+    return <SignInPrompt title="Sign in to view your cart" />;
   }
 
   if (isLoading) {

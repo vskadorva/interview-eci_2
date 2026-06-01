@@ -1,29 +1,21 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import {
+  buildPersonaQueryString,
+  parsePersonaFilter,
+  type Persona,
+  type PersonaFilter,
+} from "@acme/shared";
 import { api } from "~/lib/api";
-import type { Persona } from "@acme/shared";
 import { PersonaCard } from "~/components/PersonaCard";
 import { SearchBar } from "~/components/SearchBar";
 import { FilterPanel } from "~/components/FilterPanel";
 
-interface SearchParams {
-  q?: string;
-  specialty?: string;
-  tier?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  sort?: string;
-}
+export type BrowseSearchParams = PersonaFilter;
 
 export const Route = createFileRoute("/")({
-  validateSearch: (search: Record<string, unknown>): SearchParams => ({
-    q: (search.q as string) || undefined,
-    specialty: (search.specialty as string) || undefined,
-    tier: (search.tier as string) || undefined,
-    minPrice: search.minPrice ? Number(search.minPrice) : undefined,
-    maxPrice: search.maxPrice ? Number(search.maxPrice) : undefined,
-    sort: (search.sort as string) || undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): BrowseSearchParams =>
+    parsePersonaFilter(search),
   component: BrowsePage,
 });
 
@@ -31,28 +23,18 @@ function BrowsePage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
 
-  const queryString = new URLSearchParams();
-  if (search.q) queryString.set("q", search.q);
-  if (search.specialty) queryString.set("specialty", search.specialty);
-  if (search.tier) queryString.set("tier", search.tier);
-  if (search.minPrice) queryString.set("minPrice", String(search.minPrice));
-  if (search.maxPrice) queryString.set("maxPrice", String(search.maxPrice));
-  if (search.sort) queryString.set("sort", search.sort);
-
   const { data: personas = [], isLoading } = useQuery({
-    queryKey: ["personas"],
-    queryFn: () => {
-      const qs = queryString.toString();
-      return api.get<Persona[]>(`/personas${qs ? `?${qs}` : ""}`);
-    },
+    queryKey: ["personas", search],
+    queryFn: () =>
+      api.get<Persona[]>(`/personas${buildPersonaQueryString(search)}`),
   });
 
-  const updateSearch = (updates: Partial<SearchParams>) => {
+  const updateSearch = (updates: Partial<BrowseSearchParams>) => {
     navigate({
       to: "/",
-      search: (prev: SearchParams) => {
+      search: (prev: BrowseSearchParams) => {
         const next = { ...prev, ...updates };
-        for (const key of Object.keys(next) as (keyof SearchParams)[]) {
+        for (const key of Object.keys(next) as (keyof BrowseSearchParams)[]) {
           if (next[key] === undefined || next[key] === "") {
             delete next[key];
           }
@@ -83,9 +65,13 @@ function BrowsePage() {
         <FilterPanel
           specialty={search.specialty}
           tier={search.tier}
+          minPrice={search.minPrice}
+          maxPrice={search.maxPrice}
           sort={search.sort}
           onSpecialtyChange={(specialty) => updateSearch({ specialty })}
           onTierChange={(tier) => updateSearch({ tier })}
+          onMinPriceChange={(minPrice) => updateSearch({ minPrice })}
+          onMaxPriceChange={(maxPrice) => updateSearch({ maxPrice })}
           onSortChange={(sort) => updateSearch({ sort })}
         />
 

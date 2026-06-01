@@ -4,10 +4,12 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
   type ReactNode,
 } from "react";
 import type { User, AuthResponse } from "@acme/shared";
 import { api, ApiError } from "./api";
+import { AUTH_TOKEN_KEY } from "./auth-storage";
 
 interface AuthContextType {
   user: User | null;
@@ -19,10 +21,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem("auth_token"),
+    localStorage.getItem(AUTH_TOKEN_KEY),
   );
   const [isLoading, setIsLoading] = useState(!!token);
 
@@ -34,33 +36,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     api
       .get<User>("/auth/me")
-      .then((u) => {
-        setUser(u);
-      })
+      .then(setUser)
       .catch((err) => {
-        if (err instanceof ApiError && err.status === 401) {
-          localStorage.removeItem("auth_token");
+        if (err instanceof ApiError) {
+          localStorage.removeItem(AUTH_TOKEN_KEY);
           setToken(null);
+          setUser(null);
         }
       })
       .finally(() => setIsLoading(false));
   }, [token]);
 
   const login = useCallback((response: AuthResponse) => {
-    localStorage.setItem("auth_token", response.token);
+    localStorage.setItem(AUTH_TOKEN_KEY, response.token);
     setToken(response.token);
     setUser(response.user);
   }, []);
 
   const logout = useCallback(() => {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
     setToken(null);
     setUser(null);
   }, []);
 
+  const value = useMemo(
+    () => ({ user, token, isLoading, login, logout }),
+    [user, token, isLoading, login, logout],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
 }
 

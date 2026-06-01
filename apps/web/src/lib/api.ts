@@ -1,3 +1,5 @@
+import { AUTH_TOKEN_KEY } from "./auth-storage";
+
 const API_BASE = "http://localhost:3001";
 
 class ApiError extends Error {
@@ -11,7 +13,39 @@ class ApiError extends Error {
 }
 
 function getToken(): string | null {
-  return localStorage.getItem("auth_token");
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function formatApiError(error: unknown): string {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const flattened = error as {
+      formErrors?: string[];
+      fieldErrors?: Record<string, string[]>;
+    };
+    const messages: string[] = [];
+
+    if (flattened.formErrors?.length) {
+      messages.push(...flattened.formErrors);
+    }
+
+    if (flattened.fieldErrors) {
+      for (const [field, errors] of Object.entries(flattened.fieldErrors)) {
+        for (const message of errors) {
+          messages.push(`${field}: ${message}`);
+        }
+      }
+    }
+
+    if (messages.length > 0) {
+      return messages.join(". ");
+    }
+  }
+
+  return "Request failed";
 }
 
 async function request<T>(
@@ -20,9 +54,12 @@ async function request<T>(
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...((options.headers as Record<string, string>) ?? {}),
   };
+
+  if (options.body !== undefined && options.body !== null) {
+    headers["Content-Type"] ??= "application/json";
+  }
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -37,7 +74,7 @@ async function request<T>(
     const body = await response.json().catch(() => ({}));
     throw new ApiError(
       response.status,
-      body.error ?? `Request failed: ${response.status}`,
+      formatApiError(body.error) || `Request failed: ${response.status}`,
     );
   }
 

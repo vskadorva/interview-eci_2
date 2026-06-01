@@ -12,9 +12,12 @@ const app = Fastify({ logger: true });
 await app.register(cors, {
   origin: "http://localhost:5173",
   credentials: true,
-  methods: ["GET", "POST", "PUT", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 });
-await app.register(jwt, { secret: "agentic-personas-dev-secret" });
+const JWT_SECRET =
+  process.env.JWT_SECRET ?? "agentic-personas-dev-secret";
+
+await app.register(jwt, { secret: JWT_SECRET });
 
 await app.register(personaRoutes);
 await app.register(authRoutes);

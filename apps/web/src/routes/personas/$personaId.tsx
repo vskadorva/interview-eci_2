@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth";
+import { getErrorMessage } from "~/lib/errors";
+import { tierColors } from "~/lib/persona";
 import { queryClient } from "~/lib/queryClient";
 import { StarRating } from "~/components/StarRating";
 import type { Persona, Cart } from "@acme/shared";
@@ -13,39 +16,56 @@ export const Route = createFileRoute("/personas/$personaId")({
 function PersonaDetailPage() {
   const { personaId } = Route.useParams();
   const { user } = useAuth();
+  const [actionError, setActionError] = useState("");
 
   const { data: persona, isLoading } = useQuery({
     queryKey: ["persona", personaId],
     queryFn: () => api.get<Persona>(`/personas/${personaId}`),
   });
 
-  const { data: favorites = [] } = useQuery({
+  const { data: favoritesData } = useQuery({
     queryKey: ["favorites"],
-    queryFn: async () => {
-      const res = await api.get<{ favorites: Persona[] }>("/favorites");
-      return res.favorites.map((p) => p.id);
-    },
+    queryFn: () => api.get<{ favorites: Persona[] }>("/favorites"),
+    enabled: !!user,
   });
 
-  const isFavorited = favorites.includes(personaId);
+  const isFavorited = (favoritesData?.favorites ?? []).some(
+    (persona) => persona.id === personaId,
+  );
 
   const addToCart = useMutation({
     mutationFn: () =>
       api.post<Cart>("/cart", { personaId, quantity: 1 }),
     onSuccess: () => {
+      setActionError("");
       queryClient.invalidateQueries({ queryKey: ["cart"] });
+    },
+    onError: (err) => {
+      setActionError(getErrorMessage(err, "Failed to add to cart"));
     },
   });
 
-  const toggleFavorite = useMutation({
-    mutationFn: () =>
-      !isFavorited
-        ? api.delete(`/favorites/${personaId}`)
-        : api.post("/favorites", { personaId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["favorites"] });
-    },
-  });
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+
+  const handleToggleFavorite = async () => {
+    if (isTogglingFavorite) return;
+
+    setIsTogglingFavorite(true);
+    setActionError("");
+
+    try {
+      if (isFavorited) {
+        await api.delete(`/favorites/${personaId}`);
+      } else {
+        await api.post("/favorites", { personaId });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["favorites"] });
+    } catch (err) {
+      setActionError(getErrorMessage(err, "Failed to update favorite"));
+    } finally {
+      setIsTogglingFavorite(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -69,12 +89,6 @@ function PersonaDetailPage() {
       </div>
     );
   }
-
-  const tierColors = {
-    Starter: "bg-green-100 text-green-800",
-    Pro: "bg-blue-100 text-blue-800",
-    Enterprise: "bg-purple-100 text-purple-800",
-  };
 
   return (
     <div>
@@ -163,33 +177,40 @@ function PersonaDetailPage() {
             </div>
 
             {user && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => addToCart.mutate()}
-                  disabled={addToCart.isPending}
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                >
-                  {addToCart.isPending ? "Adding..." : "Add to Cart"}
-                </button>
-                <button
-                  onClick={() => toggleFavorite.mutate()}
-                  disabled={toggleFavorite.isPending}
-                  className="p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                  <svg
-                    className={`w-6 h-6 ${isFavorited ? "text-red-500 fill-red-500" : "text-gray-400"}`}
-                    fill={isFavorited ? "currentColor" : "none"}
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              <div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => addToCart.mutate()}
+                    disabled={addToCart.isPending}
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
-                </button>
+                    {addToCart.isPending ? "Adding..." : "Add to Cart"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      void handleToggleFavorite();
+                    }}
+                    disabled={isTogglingFavorite}
+                    className="p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    <svg
+                      className={`w-6 h-6 ${isFavorited ? "text-red-500 fill-red-500" : "text-gray-400"}`}
+                      fill={isFavorited ? "currentColor" : "none"}
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                {actionError && (
+                  <p className="mt-3 text-red-600 text-sm">{actionError}</p>
+                )}
               </div>
             )}
 

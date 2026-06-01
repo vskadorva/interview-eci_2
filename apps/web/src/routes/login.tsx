@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { api, ApiError } from "~/lib/api";
+import { api } from "~/lib/api";
+import { getErrorMessage } from "~/lib/errors";
 import { useAuth } from "~/lib/auth";
 import type { AuthResponse } from "@acme/shared";
 
@@ -29,11 +30,7 @@ function LoginPage() {
       login(response);
       navigate({ to: "/" });
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError("Something went wrong");
-      }
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

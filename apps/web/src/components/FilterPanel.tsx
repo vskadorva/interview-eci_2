@@ -1,3 +1,5 @@
+import type { PersonaFilter } from "@acme/shared";
+
 const specialties = [
   "Engineering",
   "Design",
@@ -17,20 +19,28 @@ const sortOptions = [
 ] as const;
 
 interface FilterPanelProps {
-  specialty?: string;
-  tier?: string;
-  sort?: string;
-  onSpecialtyChange: (v: string | undefined) => void;
-  onTierChange: (v: string | undefined) => void;
-  onSortChange: (v: string | undefined) => void;
+  specialty?: PersonaFilter["specialty"];
+  tier?: PersonaFilter["tier"];
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: PersonaFilter["sort"];
+  onSpecialtyChange: (v: PersonaFilter["specialty"]) => void;
+  onTierChange: (v: PersonaFilter["tier"]) => void;
+  onMinPriceChange: (v: number | undefined) => void;
+  onMaxPriceChange: (v: number | undefined) => void;
+  onSortChange: (v: PersonaFilter["sort"]) => void;
 }
 
 export function FilterPanel({
   specialty,
   tier,
+  minPrice,
+  maxPrice,
   sort,
   onSpecialtyChange,
   onTierChange,
+  onMinPriceChange,
+  onMaxPriceChange,
   onSortChange,
 }: FilterPanelProps) {
   return (
@@ -76,11 +86,51 @@ export function FilterPanel({
       </div>
 
       <div>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Price Range</h3>
+        <div className="space-y-2">
+          <label className="block">
+            <span className="text-xs text-gray-500 mb-1 block">Min ($/mo)</span>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={minPrice ?? ""}
+              onChange={(e) =>
+                onMinPriceChange(
+                  e.target.value === "" ? undefined : Number(e.target.value),
+                )
+              }
+              placeholder="0"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-gray-500 mb-1 block">Max ($/mo)</span>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={maxPrice ?? ""}
+              onChange={(e) =>
+                onMaxPriceChange(
+                  e.target.value === "" ? undefined : Number(e.target.value),
+                )
+              }
+              placeholder="Any"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Sort By</h3>
         <select
           value={sort ?? ""}
           onChange={(e) =>
-            onSortChange(e.target.value || undefined)
+            onSortChange(
+              (e.target.value || undefined) as PersonaFilter["sort"],
+            )
           }
           className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
         >

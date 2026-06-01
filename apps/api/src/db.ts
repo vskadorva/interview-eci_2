@@ -1,6 +1,6 @@
 import type { Persona, User, CartItem, Order } from "@acme/shared";
 
-interface StoredUser extends User {
+export interface StoredUser extends User {
   passwordHash: string;
 }
 
@@ -362,7 +362,7 @@ export const db = {
       }
 
       if (filters.minPrice !== undefined) {
-        results = results.filter((p) => p.price <= filters.minPrice!);
+        results = results.filter((p) => p.price >= filters.minPrice!);
       }
 
       if (filters.maxPrice !== undefined) {
@@ -396,6 +396,9 @@ export const db = {
     },
     getByEmail(email: string): StoredUser | undefined {
       return Array.from(users.values()).find((u) => u.email === email);
+    },
+    getByUsername(username: string): StoredUser | undefined {
+      return Array.from(users.values()).find((u) => u.username === username);
     },
     create(user: StoredUser): StoredUser {
       users.set(user.id, user);
